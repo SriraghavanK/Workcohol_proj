@@ -8,7 +8,7 @@ from .serializers import BookingSerializer, BookingCreateSerializer
 # Create your views here.
 
 class BookingViewSet(viewsets.ModelViewSet):
-    queryset = Booking.objects.all()
+    queryset = Booking.objects.all()     
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
 

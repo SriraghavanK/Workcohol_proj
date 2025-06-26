@@ -22,7 +22,7 @@ const removeToken = () => {
 };
 
 // API request helper
-const apiRequest = async (endpoint, options = {}) => {
+const apiRequest = async (endpoint, options = {}, retry = true) => {
   const token = getToken();
   
   const config = {
@@ -67,6 +67,22 @@ const apiRequest = async (endpoint, options = {}) => {
       } catch (parseError) {
         if (responseText) {
           errorMessage = responseText;
+        }
+      }
+      
+      // Automatic token refresh logic
+      if (
+        (response.status === 401 || errorMessage.includes('Given token not valid')) &&
+        retry &&
+        localStorage.getItem('refresh_token')
+      ) {
+        try {
+          await authAPI.refreshToken();
+          return await apiRequest(endpoint, options, false); // retry once
+        } catch (refreshError) {
+          authAPI.logout();
+          window.location.href = '/login';
+          throw new Error('Session expired. Please log in again.');
         }
       }
       

@@ -6,7 +6,8 @@ export default function LoadingSpinner({
   size = "large", 
   message = "Loading...", 
   showProgress = false,
-  className = "" 
+  className = "",
+  fullscreen = false
 }) {
   const [progress, setProgress] = useState(0);
   const [dots, setDots] = useState('');
@@ -41,7 +42,7 @@ export default function LoadingSpinner({
   };
 
   return (
-    <div className={`flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 ${className}`}>
+    <div className={`${fullscreen ? 'fixed inset-0 z-[9999]' : ''} flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 ${className}`}>
       {/* Animated background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
@@ -110,8 +111,8 @@ export default function LoadingSpinner({
 }
 
 // Page loading wrapper
-export function PageLoading({ message = "Loading page...", showProgress = true }) {
-  return <LoadingSpinner size="large" message={message} showProgress={showProgress} />;
+export function PageLoading({ message = "Loading page...", showProgress = true, fullscreen = true }) {
+  return <LoadingSpinner size="large" message={message} showProgress={showProgress} fullscreen={fullscreen} />;
 }
 
 // Component loading wrapper  

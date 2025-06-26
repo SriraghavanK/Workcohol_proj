@@ -16,6 +16,23 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['user', 'created_at', 'updated_at']
 
+    def update(self, instance, validated_data):
+        # Update related User fields if present in request data
+        user_data = self.context['request'].data.get('user', {})
+        user = instance.user
+        changed = False
+        for field in ['email', 'username', 'first_name', 'last_name']:
+            if field in self.context['request'].data:
+                setattr(user, field, self.context['request'].data[field])
+                changed = True
+        if changed:
+            user.save()
+        # Update UserProfile fields as usual
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     user_type = serializers.CharField(max_length=10, required=False, default='mentee')
