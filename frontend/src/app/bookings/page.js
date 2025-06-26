@@ -6,7 +6,7 @@ import ProtectedRoute from "../../components/ProtectedRoute";
 import { bookingsAPI } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { FadeIn, ScaleIn } from "../../components/LightweightAnimations";
-import { ComponentLoading, PageLoading } from "../../components/LoadingSpinner";
+import { ComponentLoading } from "../../components/LoadingSpinner";
 
 // Re-styled BookingCard to match the dashboard theme
 const BookingCard = ({ booking, isMentor, onAction, isProcessing }) => {
@@ -38,10 +38,8 @@ const BookingCard = ({ booking, isMentor, onAction, isProcessing }) => {
   };
 
   const canPerformAction = (booking, action) => {
-    if (action === 'cancel' && ['pending', 'confirmed'].includes(booking.status)) {
-      return true;
-    }
     if (isMentor) {
+      // In the backend, the mentor object is linked directly to the user
       if (booking.mentor?.user?.id !== user?.id) return false;
       switch (action) {
         case 'accept':
@@ -49,13 +47,14 @@ const BookingCard = ({ booking, isMentor, onAction, isProcessing }) => {
           return booking.status === 'pending';
         case 'complete':
           return booking.status === 'confirmed';
+        case 'cancel':
+          return ['pending', 'confirmed'].includes(booking.status);
         default:
           return false;
       }
     } else {
-      // For mentee, fallback to booking.user if booking.mentee is missing
-      const menteeId = booking.mentee?.id ?? booking.user;
-      if (menteeId !== user?.id) return false;
+       // In the backend, the booking is linked directly to the user (mentee)
+      if (booking.user !== user?.id) return false;
       return action === 'cancel' && ['pending', 'confirmed'].includes(booking.status);
     }
   };
@@ -99,17 +98,13 @@ const BookingCard = ({ booking, isMentor, onAction, isProcessing }) => {
             <div className="flex items-center gap-2 text-secondary font-bold"><DollarSign className="w-4 h-4 text-gold/70" /> ${booking.total_amount}</div>
         </div>
 
-        {booking.description && <p className="text-secondary text-sm mb-4 italic">&quot;{booking.description}&quot;</p>}
+        {booking.description && <p className="text-secondary text-sm mb-4 italic">"{booking.description}"</p>}
 
         <div className="flex gap-3 mt-4">
           {canPerformAction(booking, 'accept') && <button onClick={() => onAction(booking.id, 'accept')} disabled={isProcessing} className="flex-1 bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30 px-4 py-2 rounded-lg font-semibold transition disabled:opacity-50">Accept</button>}
           {canPerformAction(booking, 'decline') && <button onClick={() => onAction(booking.id, 'decline')} disabled={isProcessing} className="flex-1 bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30 px-4 py-2 rounded-lg font-semibold transition disabled:opacity-50">Decline</button>}
           {canPerformAction(booking, 'complete') && <button onClick={() => onAction(booking.id, 'complete')} disabled={isProcessing} className="flex-1 bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 px-4 py-2 rounded-lg font-semibold transition disabled:opacity-50">Complete</button>}
           {canPerformAction(booking, 'cancel') && <button onClick={() => onAction(booking.id, 'cancel')} disabled={isProcessing} className="flex-1 bg-slate-600/20 text-slate-300 border border-slate-600/30 hover:bg-slate-500/30 px-4 py-2 rounded-lg font-semibold transition disabled:opacity-50">Cancel</button>}
-          {/* Reschedule button for confirmed bookings */}
-          {booking.status === 'confirmed' && (
-            <button onClick={() => alert('Reschedule functionality coming soon!')} className="flex-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 hover:bg-yellow-500/30 px-4 py-2 rounded-lg font-semibold transition disabled:opacity-50">Reschedule</button>
-          )}
         </div>
       </div>
     </ScaleIn>
@@ -138,8 +133,8 @@ export default function BookingsPage() {
           bookingsAPI.getPast()
         ]);
         
-        setUpcomingBookings(Array.isArray(upcomingData) ? upcomingData : (upcomingData.results || []));
-        setPastBookings(Array.isArray(pastData) ? pastData : (pastData.results || []));
+        setUpcomingBookings(upcomingData.results || []);
+        setPastBookings(pastData.results || []);
       } catch (err) {
         console.error('Failed to fetch bookings:', err);
         setError('Failed to load your sessions. Please try again later.');
@@ -207,10 +202,6 @@ export default function BookingsPage() {
   );
 
   const currentBookings = activeTab === 'upcoming' ? upcomingBookings : pastBookings;
-
-  if (loading) {
-    return <PageLoading message="Loading your bookings..." />;
-  }
 
   return (
     <ProtectedRoute>

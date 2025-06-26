@@ -7,8 +7,7 @@ import ProtectedRoute from "../../components/ProtectedRoute";
 import { userAPI, bookingsAPI } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { FadeIn, ScaleIn, AnimatedCounter } from "../../components/LightweightAnimations";
-import { PageLoading } from '../../components/LoadingSpinner';
-
+import { ComponentLoading } from "../../components/LoadingSpinner";
 
 // Stat Card Component
 function StatCard({ icon: Icon, label, value, color }) {
@@ -36,34 +35,9 @@ function StatCard({ icon: Icon, label, value, color }) {
 
 // Booking Card Component
 function BookingCard({ booking, isMentor }) {
-  console.log('BookingCard booking:', booking);
-  // Get the other party details (mentor or mentee)
-  let otherParty = null;
-  let otherPartyName = "User";
-  if (isMentor) {
-    otherParty = booking.mentee_details || booking.mentee;
-  } else {
-    otherParty = booking.mentor_details || booking.mentor;
-  }
-  if (otherParty) {
-    otherPartyName =
-      [otherParty.first_name, otherParty.last_name].filter(Boolean).join(' ') ||
-      otherParty.name ||
-      otherParty.username ||
-      otherParty.email ||
-      'User';
-  }
-  
+  const otherParty = isMentor ? booking.mentee_details : booking.mentor_details;
+  const otherPartyName = otherParty ? `${otherParty.first_name} ${otherParty.last_name}` : "User";
   const sessionDate = new Date(booking.session_date);
-  
-  // Calculate session time range
-  let sessionTimeRange = '';
-  if (booking?.duration) {
-    const endDate = new Date(sessionDate.getTime() + (booking.duration * 60000));
-    sessionTimeRange = `${sessionDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
-  } else {
-    sessionTimeRange = sessionDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  }
 
   return (
     <div className="flex items-center justify-between p-4 rounded-xl bg-slate-800/50 hover:bg-slate-800/70 transition-colors duration-300">
@@ -79,7 +53,7 @@ function BookingCard({ booking, isMentor }) {
         />
         <div>
           <p className="font-bold text-white">
-            Session with {otherPartyName}
+            {isMentor ? "Session with" : "Session with"} {otherPartyName}
           </p>
           <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
             <span className="flex items-center gap-1">
@@ -88,18 +62,8 @@ function BookingCard({ booking, isMentor }) {
             </span>
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              {sessionTimeRange}
+              {sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
-            {booking.status && (
-              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                booking.status === 'confirmed' ? 'bg-green-500/20 text-green-400' :
-                booking.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                booking.status === 'cancelled' ? 'bg-red-500/20 text-red-400' :
-                'bg-slate-500/20 text-slate-400'
-              }`}>
-                {booking.status}
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -134,9 +98,6 @@ export default function DashboardPage() {
         setUserProfile(profileData.results?.[0] || profileData);
         setBookings(bookingsData.results || bookingsData);
         setStats(statsData);
-        
-        // Debug logging
-        console.log('All bookings received:', bookingsData.results || bookingsData);
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
         setError('Failed to load dashboard data. Please try again later.');
@@ -148,60 +109,13 @@ export default function DashboardPage() {
     fetchDashboardData();
   }, []);
 
-  // Debug: log all bookings
-  useEffect(() => {
-    if (bookings.length > 0) {
-      console.log('All bookings:', bookings);
-      bookings.forEach(booking => {
-        if (booking.session_date && booking.duration) {
-          const sessionStart = new Date(booking.session_date);
-          const sessionEnd = new Date(sessionStart.getTime() + (booking.duration * 60000));
-          console.log(`Booking #${booking.id}: start=${sessionStart}, end=${sessionEnd}, status=${booking.status}`);
-        }
-      });
-    }
-  }, [bookings]);
+  const upcomingBookings = bookings.filter(booking => 
+    new Date(booking.session_date) > new Date()
+  ).slice(0, 3);
 
-  // Improved date filtering with better timezone handling and status filtering
-  const upcomingBookings = bookings
-    .filter(booking => {
-      if (!booking.session_date) return false;
-      const sessionStart = new Date(booking.session_date);
-      // Use 60 minutes as default if duration is missing
-      const duration = booking.duration || 60;
-      const sessionEnd = new Date(sessionStart.getTime() + (duration * 60000));
-      const now = new Date();
-      const validStatus = ['confirmed', 'pending'];
-      return (
-        sessionEnd > now &&
-        validStatus.includes((booking.status || '').toLowerCase())
-      );
-    })
-    .sort((a, b) => new Date(a.session_date) - new Date(b.session_date))
-    .slice(0, 5);
-
-  const pastBookings = bookings
-    .filter(booking => {
-      if (!booking.session_date) return false;
-      
-      const sessionDate = new Date(booking.session_date);
-      const now = new Date();
-      
-      // Add 1 hour buffer to account for timezone differences
-      const bufferTime = new Date(now.getTime() + (60 * 60 * 1000));
-      
-      return sessionDate <= bufferTime;
-    })
-    .sort((a, b) => new Date(b.session_date) - new Date(a.session_date))
-    .slice(0, 3);
-
-  // Fallback: all future sessions regardless of status/duration
-  const allFutureSessions = bookings.filter(booking => {
-    if (!booking.session_date) return false;
-    const sessionStart = new Date(booking.session_date);
-    const now = new Date();
-    return sessionStart > now;
-  });
+  const pastBookings = bookings.filter(booking => 
+    new Date(booking.session_date) <= new Date()
+  ).slice(0, 3);
 
   // Determine if user is a mentor
   const isMentor = user?.user_type === 'mentor';
@@ -209,7 +123,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <ProtectedRoute>
-        <PageLoading message="Loading your dashboard..." />
+        <ComponentLoading message="Loading your dashboard..." size="large" />
       </ProtectedRoute>
     );
   }
@@ -305,19 +219,6 @@ export default function DashboardPage() {
                     <p className="text-slate-400 mb-4">
                       {isMentor ? "No upcoming sessions scheduled" : "No upcoming sessions"}
                     </p>
-                    {/* Debug: Show all future sessions if any */}
-                    {allFutureSessions.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-slate-400 mb-2">Debug: Found future sessions not shown as upcoming:</p>
-                        <ul className="text-xs text-slate-500">
-                          {allFutureSessions.map(b => (
-                            <li key={b.id}>
-                              #{b.id} | {b.session_date} | status: {b.status} | duration: {b.duration}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
                     {!isMentor && (
                       <Link
                         href="/mentors"
