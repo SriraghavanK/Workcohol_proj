@@ -16,7 +16,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class UserProfileViewSet(viewsets.ModelViewSet):
-    queryset = UserProfile.objects.all() # type: ignore
+    queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -24,8 +24,8 @@ class UserProfileViewSet(viewsets.ModelViewSet):
         # Users can only see their own profile unless admin
         user = self.request.user
         if user.is_superuser:
-            return UserProfile.objects.all() # type: ignore 
-        return UserProfile.objects.filter(user=user) # type: ignore
+            return UserProfile.objects.all()
+        return UserProfile.objects.filter(user=user)
 
     @action(detail=False, methods=['get'])
     def me(self, request):
@@ -48,10 +48,10 @@ class UserProfileViewSet(viewsets.ModelViewSet):
         # Get user's bookings
         if hasattr(user, 'profile') and user.profile.user_type == 'mentor':
             # For mentors, filter by mentor field
-            user_bookings = Booking.objects.filter(mentor=user) # type: ignore
+            user_bookings = Booking.objects.filter(mentor=user)
         else:
             # For mentees, filter by mentee field
-            user_bookings = Booking.objects.filter(mentee=user) # type: ignore
+            user_bookings = Booking.objects.filter(mentee=user)
         
         # Calculate stats based on user type
         if hasattr(user, 'profile') and user.profile.user_type == 'mentor':
@@ -64,7 +64,7 @@ class UserProfileViewSet(viewsets.ModelViewSet):
             total_earnings = sum(booking.duration_minutes / 60 * 50 for booking in completed_sessions)
             
             # Get average rating
-            mentor_reviews = Review.objects.filter(mentor=user.profile) # type: ignore
+            mentor_reviews = Review.objects.filter(mentor=user.profile)
             average_rating = mentor_reviews.aggregate(Avg('rating'))['rating__avg'] or 0
             
             stats = {

@@ -6,7 +6,6 @@ import ProtectedRoute from "../../components/ProtectedRoute";
 import { bookingsAPI } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { FadeIn, ScaleIn } from "../../components/LightweightAnimations";
-import { PageLoading } from '../../components/LoadingSpinner';
 
 // Re-styled BookingCard to match the dashboard theme
 const BookingCard = ({ booking, isMentor, onAction, isProcessing }) => {
@@ -204,10 +203,6 @@ export default function BookingsPage() {
   );
 
   const currentBookings = activeTab === 'upcoming' ? upcomingBookings : pastBookings;
-
-  if (loading) {
-    return <PageLoading message="Loading your bookings..." />;
-  }
 
   return (
     <ProtectedRoute>
