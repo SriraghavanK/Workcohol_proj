@@ -1,12 +1,10 @@
-"use client"
-
-import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { mentorsAPI } from "../../services/api"
 import { FadeIn, ScaleIn } from "../../components/LightweightAnimations"
 import { ComponentLoading } from "../../components/LoadingSpinner"
 import { Star, MapPin, Users, Clock } from "lucide-react"
+import { Suspense } from "react"
+import MentorsClient from "./MentorsClient"
 
 function MentorCard({ mentor, index }) {
   // Handle API data structure
@@ -107,199 +105,22 @@ function MentorCard({ mentor, index }) {
   )
 }
 
-export default function MentorsPage() {
-  const [mentors, setMentors] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedExpertise, setSelectedExpertise] = useState("")
-  const [expertiseList, setExpertiseList] = useState([])
-  const [sortBy, setSortBy] = useState("rating")
+async function fetchMentorsAndExpertise() {
+  // Use server-side fetch for SSG/SSR
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
+  const [mentorsRes, expertiseRes] = await Promise.all([
+    fetch(`${API_BASE_URL}/mentors/`, { cache: 'no-store' }),
+    fetch(`${API_BASE_URL}/mentors/expertise/`, { cache: 'no-store' })
+  ]);
+  const mentorsData = await mentorsRes.json();
+  const expertiseData = await expertiseRes.json();
+  return {
+    mentors: mentorsData.results || mentorsData,
+    expertiseList: expertiseData.results || expertiseData
+  };
+}
 
-  // Fetch mentors and expertise on component mount
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-        const [mentorsData, expertiseData] = await Promise.all([
-          mentorsAPI.getAll(),
-          mentorsAPI.getExpertise()
-        ])
-        
-        setMentors(mentorsData.results || mentorsData)
-        setExpertiseList(expertiseData.results || expertiseData)
-      } catch (err) {
-        console.error('Failed to fetch mentors:', err)
-        setError('Failed to load mentors. Please try again later.')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [])
-
-  // Filter and sort mentors
-  const filteredMentors = mentors.filter(mentor => {
-    const mentorName = mentor.user ? `${mentor.user.first_name} ${mentor.user.last_name}` : ""
-    const mentorBio = mentor.bio || ""
-    const mentorExpertise = mentor.expertise || []
-    
-    const matchesSearch = 
-      mentorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentorBio.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentorExpertise.some(exp => exp.name?.toLowerCase().includes(searchTerm.toLowerCase()))
-    
-    const matchesExpertise = !selectedExpertise || 
-                           mentorExpertise.some(exp => exp.id === parseInt(selectedExpertise))
-    
-    return matchesSearch && matchesExpertise
-  })
-
-  const sortedMentors = [...filteredMentors].sort((a, b) => {
-    switch (sortBy) {
-      case "rating":
-        return (b.rating || 0) - (a.rating || 0)
-      case "price-low":
-        return (a.hourly_rate || 0) - (b.hourly_rate || 0)
-      case "price-high":
-        return (b.hourly_rate || 0) - (a.hourly_rate || 0)
-      case "reviews":
-        return (b.review_count || 0) - (a.review_count || 0)
-      default:
-        return 0
-    }
-  })
-
-  if (loading) {
-    return <ComponentLoading message="Finding amazing mentors..." size="large" />
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 flex items-center justify-center text-center">
-        <div className="text-red-400 text-6xl mb-4">⚠️</div>
-        <h2 className="text-2xl font-bold text-white mb-2">Oops!</h2>
-        <p className="text-slate-400 mb-4">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="bg-gold text-primary px-6 py-2 rounded-lg font-bold hover:bg-amber-400 transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div className="relative min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950">
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950" />
-
-      <div className="relative z-10 container mx-auto px-4 py-8">
-        {/* Header */}
-        <FadeIn className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent mb-4">
-            Find Your Perfect Mentor
-          </h1>
-          <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-            Connect with experienced professionals who can guide you on your career journey
-          </p>
-        </FadeIn>
-
-        {/* Search and Filters */}
-        <FadeIn className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-2xl rounded-3xl p-6 mb-8 border border-purple-500/20">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">Search</label>
-              <input
-                type="text"
-                placeholder="Search mentors..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all"
-              />
-            </div>
-
-            {/* Expertise Filter */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">Expertise</label>
-              <select
-                value={selectedExpertise}
-                onChange={(e) => setSelectedExpertise(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all appearance-none"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                  backgroundPosition: "right 0.5rem center",
-                  backgroundRepeat: "no-repeat",
-                  backgroundSize: "1.5em 1.5em",
-                }}
-              >
-                <option value="" className="bg-slate-900 text-white">All Expertise</option>
-                {expertiseList.map((expertise) => (
-                  <option key={expertise.id} value={expertise.id} className="bg-slate-900 text-white">
-                    {expertise.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Sort By */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">Sort By</label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all appearance-none"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                  backgroundPosition: "right 0.5rem center",
-                  backgroundRepeat: "no-repeat",
-                  backgroundSize: "1.5em 1.5em",
-                }}
-              >
-                <option value="rating" className="bg-slate-900 text-white">Highest Rated</option>
-                <option value="price-low" className="bg-slate-900 text-white">Price: Low to High</option>
-                <option value="price-high" className="bg-slate-900 text-white">Price: High to Low</option>
-                <option value="reviews" className="bg-slate-900 text-white">Most Reviews</option>
-              </select>
-            </div>
-
-            {/* Results Count */}
-            <div className="flex items-end">
-              <div className="text-slate-400">
-                <span className="text-2xl font-bold text-gold">{sortedMentors.length}</span> mentors found
-              </div>
-            </div>
-          </div>
-        </FadeIn>
-
-        {/* Mentors Grid */}
-        {sortedMentors.length === 0 ? (
-          <FadeIn className="text-center py-16">
-            <div className="text-6xl mb-4">🔍</div>
-            <h3 className="text-2xl font-bold text-white mb-2">No mentors found</h3>
-            <p className="text-slate-400 mb-6">
-              Try adjusting your search criteria or browse all mentors
-            </p>
-            <button
-              onClick={() => {
-                setSearchTerm("")
-                setSelectedExpertise("")
-              }}
-              className="bg-gold text-primary px-6 py-2 rounded-lg font-bold hover:bg-amber-400 transition-colors"
-            >
-              Clear Filters
-            </button>
-          </FadeIn>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortedMentors.map((mentor, index) => (
-              <MentorCard key={mentor.id} mentor={mentor} index={index} />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
+export default async function MentorsPage() {
+  const { mentors, expertiseList } = await fetchMentorsAndExpertise();
+  return <MentorsClient mentors={mentors} expertiseList={expertiseList} />;
 }

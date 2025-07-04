@@ -163,3 +163,7 @@ AUTHENTICATION_BACKENDS = [
     'users.backends.EmailOrUsernameModelBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
+
+# Media files (profile pictures, uploads)
+MEDIA_URL = '/profile_pictures/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'profile_pictures')

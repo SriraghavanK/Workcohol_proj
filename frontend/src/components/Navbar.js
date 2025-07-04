@@ -125,49 +125,35 @@ export default function Navbar() {
                 )}
               </Link>
             ))}
-            {/* User avatar dropdown or Logout Button */}
-            {isAuthenticated && user?.avatar ? (
-              <div className="relative ml-4">
-                <button
-                  onClick={() => setAvatarOpen((v) => !v)}
-                  className="focus:outline-none focus:ring-2 focus:ring-gold rounded-full border-2 border-gold/30 hover:border-gold/60 transition-all"
-                  aria-label="User menu"
-                  tabIndex={0}
-                >
-                  <Image
-                    src={user.avatar}
-                    alt="User avatar"
-                    width={36}
-                    height={36}
-                    className="rounded-full object-cover"
-                  />
-                </button>
-                {avatarOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-slate-900/95 rounded-xl shadow-lg border border-gold/10 py-2 z-50 animate-fade-in">
-                    <Link
-                      href="/profile"
-                      className="block px-4 py-2 text-secondary hover:text-gold transition-colors"
-                      onClick={() => setAvatarOpen(false)}
-                    >
-                      Profile
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-b-xl transition-colors"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : isAuthenticated ? (
-              <button
-                onClick={handleLogout}
-                className="ml-4 px-4 py-1.5 font-medium transition-colors text-secondary hover:text-gold focus:outline-none focus:ring-2 focus:ring-gold/50 rounded-lg"
-              >
-                Logout
-              </button>
-            ) : null}
+            {/* Logout, then username and profile picture as profile link */}
+            {isAuthenticated && (
+              <>
+                <span className="relative group">
+                  <button
+                    onClick={handleLogout}
+                    className="relative px-2 py-1 font-medium transition-colors text-secondary hover:text-gold focus:outline-none group cursor-pointer"
+                    tabIndex={0}
+                    style={{ background: 'none', border: 'none' }}
+                  >
+                    Logout
+                  </button>
+                </span>
+                <Link href="/profile" className="flex items-center gap-2 px-2 py-1 font-medium text-secondary hover:text-gold transition-colors focus:outline-none">
+                  {user.profile_picture ? (
+                    <Image
+                      src={user.profile_picture.startsWith('http') ? user.profile_picture : `http://localhost:8000${user.profile_picture}`}
+                      alt="Profile picture"
+                      width={28}
+                      height={28}
+                      className="rounded-full object-cover border-2 border-gold/30"
+                    />
+                  ) : (
+                    <span className="inline-block w-7 h-7 rounded-full bg-slate-700 border-2 border-gold/30 flex items-center justify-center text-gold font-bold text-lg">{user.user?.username?.[0]?.toUpperCase() || '?'}</span>
+                  )}
+                  <span className="text-secondary font-medium">{user.user?.username}</span>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -217,26 +203,31 @@ export default function Navbar() {
             {/* User info and Logout for mobile */}
             {isAuthenticated && (
               <div className="border-t border-slate-800 mt-3 pt-3 flex items-center justify-between">
-                {user?.avatar ? (
-                  <div className="flex items-center gap-3">
+                <span className="relative group">
+                  <button
+                    onClick={handleLogout}
+                    className="relative px-2 py-1 font-medium transition-colors text-secondary hover:text-gold focus:outline-none group cursor-pointer"
+                    tabIndex={0}
+                    style={{ background: 'none', border: 'none' }}
+                  >
+                    Logout
+                    <span className="absolute left-0 -bottom-1 w-full h-0.5 bg-gradient-to-r from-purple-400 to-gold rounded-full opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-200" />
+                  </button>
+                </span>
+                <Link href="/profile" className="flex items-center gap-2 px-2 py-1 font-medium text-secondary hover:text-gold transition-colors focus:outline-none">
+                  {user.profile_picture ? (
                     <Image
-                      src={user.avatar}
-                      alt="User avatar"
-                      width={32}
-                      height={32}
+                      src={user.profile_picture.startsWith('http') ? user.profile_picture : `http://localhost:8000${user.profile_picture}`}
+                      alt="Profile picture"
+                      width={28}
+                      height={28}
                       className="rounded-full object-cover border-2 border-gold/30"
                     />
-                    <span className="text-secondary font-medium">{user.username || 'User'}</span>
-                  </div>
-                ) : (
-                  <span className="text-secondary font-medium">{user?.username || 'User'}</span>
-                )}
-                <button
-                  onClick={handleLogout}
-                  className="text-red-400 hover:bg-red-500/10 px-3 py-2 rounded-lg font-medium transition-colors"
-                >
-                  Logout
-                </button>
+                  ) : (
+                    <span className="inline-block w-7 h-7 rounded-full bg-slate-700 border-2 border-gold/30 flex items-center justify-center text-gold font-bold text-lg">{user.user?.username?.[0]?.toUpperCase() || '?'}</span>
+                  )}
+                  <span className="text-secondary font-medium">{user.user?.username}</span>
+                </Link>
               </div>
             )}
           </div>

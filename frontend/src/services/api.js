@@ -24,13 +24,16 @@ const removeToken = () => {
 // API request helper
 const apiRequest = async (endpoint, options = {}, retry = true) => {
   const token = getToken();
-  
+  let headers = {
+    ...(token && { 'Authorization': `Bearer ${token}` }),
+    ...options.headers,
+  };
+  // If body is FormData, do not set Content-Type (browser will set it)
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
   const config = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-      ...options.headers,
-    },
+    headers,
     ...options,
   };
 
@@ -321,16 +324,28 @@ export const userAPI = {
     try {
       // First get the current profile to get the ID
       const profile = await apiRequest('/users/profiles/me/');
-      
       if (!profile || !profile.id) {
         throw new Error('Profile not found');
       }
-      
-      // Update using PATCH on the individual profile
-      return await apiRequest(`/users/profiles/${profile.id}/`, {
-        method: 'PATCH',
-        body: JSON.stringify(profileData),
-      });
+      // If profile_picture is a File or Blob, use FormData
+      let hasFile = profileData.profile_picture instanceof File || profileData.profile_picture instanceof Blob;
+      if (hasFile) {
+        const formData = new FormData();
+        for (const key in profileData) {
+          if (profileData[key] !== undefined && profileData[key] !== null) {
+            formData.append(key, profileData[key]);
+          }
+        }
+        return await apiRequest(`/users/profiles/${profile.id}/`, {
+          method: 'PATCH',
+          body: formData,
+        });
+      } else {
+        return await apiRequest(`/users/profiles/${profile.id}/`, {
+          method: 'PATCH',
+          body: JSON.stringify(profileData),
+        });
+      }
     } catch (error) {
       // If profile doesn't exist, try to create it
       if (error.message.includes('404') || error.message.includes('not found')) {

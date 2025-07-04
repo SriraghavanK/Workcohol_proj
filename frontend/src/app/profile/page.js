@@ -8,6 +8,7 @@ import ProtectedRoute from "../../components/ProtectedRoute";
 import { userAPI } from "../../services/api";
 import { FadeIn, ScaleIn, FloatingBlob } from "../../components/LightweightAnimations";
 import { PageLoading } from '../../components/LoadingSpinner';
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState(null);
@@ -32,6 +33,7 @@ export default function ProfilePage() {
   const [formErrors, setFormErrors] = useState({});
   const successRef = useRef(null);
   const errorRef = useRef(null);
+  const { setUser } = useAuth();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -51,7 +53,11 @@ export default function ProfilePage() {
           github: userProfile?.github || "",
           username: userProfile?.user?.username || "",
         });
-        setProfilePic(userProfile?.profile_picture || null);
+        setProfilePic(
+          userProfile?.profile_picture
+            ? userProfile.profile_picture + '?t=' + new Date().getTime()
+            : null
+        );
       } catch (err) {
         setError("Failed to load profile. Please try again later.");
       } finally {
@@ -143,16 +149,9 @@ export default function ProfilePage() {
       return;
     }
     try {
-      // If profilePicFile is set, upload it (simulate for now)
-      // In a real app, you'd POST to an endpoint and get a URL
-      // For now, just set the preview as the profile picture
-      let picUrl = profilePic;
-      if (profilePicFile) {
-        // Simulate upload and get a URL
-        picUrl = URL.createObjectURL(profilePicFile);
-        setProfilePic(picUrl);
-      }
-      await userAPI.updateProfile({ ...formData, profile_picture: picUrl });
+      // Only use URL.createObjectURL for preview, send File object to backend
+      let profile_picture = profilePicFile ? profilePicFile : profilePic;
+      await userAPI.updateProfile({ ...formData, profile_picture });
       setSuccess("Profile updated successfully!");
       setIsEditing(false);
       setProfilePicFile(null);
@@ -160,6 +159,12 @@ export default function ProfilePage() {
       const profileData = await userAPI.getProfile();
       const userProfile = profileData.results?.[0] || profileData;
       setProfile(userProfile);
+      setProfilePic(
+        userProfile?.profile_picture
+          ? userProfile.profile_picture + '?t=' + new Date().getTime()
+          : null
+      );
+      setUser({ isAuthenticated: true, ...userProfile }); // Update global user for navbar
     } catch (err) {
       setError("Failed to update profile. Please try again.");
     } finally {
@@ -179,7 +184,7 @@ export default function ProfilePage() {
       github: profile?.github || "",
       username: profile?.user?.username || "",
     });
-    setProfilePic(profile?.profile_picture || null);
+    setProfilePic(profile?.profile_picture || null); // Reset preview to backend value
     setProfilePicFile(null);
     setIsEditing(false);
     setError(null);
@@ -189,7 +194,7 @@ export default function ProfilePage() {
     const file = e.target.files[0];
     if (file) {
       setProfilePicFile(file);
-      setProfilePic(URL.createObjectURL(file));
+      setProfilePic(URL.createObjectURL(file)); // Show preview immediately
     }
   };
 
@@ -197,6 +202,9 @@ export default function ProfilePage() {
     setProfilePic(null);
     setProfilePicFile(null);
   };
+
+  // Debug log for profilePic value
+  console.log('profilePic value:', profilePic);
 
   if (loading) {
     return (
@@ -267,6 +275,59 @@ export default function ProfilePage() {
 
           {/* Profile Form */}
           <FadeIn className="bg-slate-900/80 backdrop-blur-2xl rounded-3xl p-8 shadow-2xl border border-slate-700">
+            {/* Profile Picture Section */}
+            <div className="flex flex-col items-center mb-8">
+              <div className="relative group">
+                {profilePic &&
+                 typeof profilePic === 'string' &&
+                 profilePic.trim() !== '' &&
+                 profilePic !== 'null' &&
+                 profilePic !== 'undefined' &&
+                 !profilePic.startsWith('blob:') ? (
+                  <Image
+                    src={profilePic.startsWith('http') ? profilePic : `http://localhost:8000${profilePic}`}
+                    alt="Profile picture"
+                    width={250}
+                    height={250}
+                    className="object-cover border-4 border-gold/40 shadow-lg"
+                    style={{borderRadius: '50%' , height:'180px',width:'180px'}}
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-slate-700 border-4 border-gold/40 flex items-center justify-center text-gold text-4xl font-bold shadow-lg">
+                    {formData.username?.[0]?.toUpperCase() || '?'}
+                  </div>
+                )}
+                {isEditing && profilePic && (
+                  <button
+                    type="button"
+                    onClick={handlePicRemove}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow hover:bg-red-600 transition-colors"
+                    title="Remove picture"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+              </div>
+              {isEditing && (
+                <div className="mt-3 flex flex-col items-center gap-2">
+                  <label htmlFor="profilePicUpload" className="flex items-center gap-2 cursor-pointer bg-gold/90 hover:bg-gold text-primary px-4 py-2 rounded-lg font-medium shadow transition-colors">
+                    <Upload size={18} />
+                    <span>Upload New</span>
+                    <input
+                      id="profilePicUpload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePicChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {profilePicFile && (
+                    <span className="text-xs text-secondary">Selected: {profilePicFile.name}</span>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-2xl font-bold text-white">Personal Information</h2>
               {!isEditing ? (

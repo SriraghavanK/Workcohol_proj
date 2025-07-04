@@ -8,21 +8,21 @@ from .serializers import BookingSerializer, BookingCreateSerializer
 # Create your views here.
 
 class BookingViewSet(viewsets.ModelViewSet):
-    queryset = Booking.objects.all()     
+    queryset = Booking.objects.all()     #type:ignore
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
         if user.is_superuser:
-            return Booking.objects.all()
+            return Booking.objects.all()    #type:ignore
         
         # If user is a mentor, show bookings where they are the mentor
         if hasattr(user, 'profile') and user.profile.user_type == 'mentor':
-            return Booking.objects.filter(mentor__user=user)
+            return Booking.objects.filter(mentor__user=user)    #type:ignore
         
         # If user is a mentee, show their bookings
-        return Booking.objects.filter(mentee=user)
+        return Booking.objects.filter(mentee=user)    #type:ignore
 
     def get_serializer_class(self):
         if self.action == 'create':

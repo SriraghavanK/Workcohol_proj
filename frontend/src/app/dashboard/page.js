@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import Link from "next/link";
 import Image from "next/image";
 import { Calendar, Clock, Star, Users, TrendingUp, BookOpen, Award, Target, DollarSign, MessageSquare } from "lucide-react";
@@ -8,7 +9,6 @@ import { userAPI, bookingsAPI } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { FadeIn, ScaleIn, AnimatedCounter } from "../../components/LightweightAnimations";
 import { PageLoading } from '../../components/LoadingSpinner';
-
 
 // Stat Card Component
 function StatCard({ icon: Icon, label, value, color }) {
@@ -113,87 +113,71 @@ function BookingCard({ booking, isMentor }) {
   );
 }
 
+const fetchProfile = async () => {
+  const profileData = await userAPI.getProfile();
+  return profileData.results?.[0] || profileData;
+};
+const fetchBookings = async () => {
+  const bookingsData = await bookingsAPI.getUserBookings();
+  return bookingsData.results || bookingsData;
+};
+const fetchStats = async () => {
+  return await userAPI.getStats();
+};
+
+function DashboardSkeleton() {
+  // Simple skeleton loader for dashboard
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950">
+      <div className="w-full max-w-4xl animate-pulse">
+        <div className="h-10 bg-slate-800 rounded mb-6 w-1/2 mx-auto" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-24 bg-slate-800 rounded-2xl" />
+          ))}
+        </div>
+        <div className="h-8 bg-slate-800 rounded mb-4 w-1/3" />
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-16 bg-slate-800 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [userProfile, setUserProfile] = useState(null);
-  const [bookings, setBookings] = useState([]);
-  const [stats, setStats] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Use SWR for all data fetching
+  const { data: userProfile, error: profileError, isLoading: loadingProfile } = useSWR('profile', fetchProfile);
+  const { data: bookings, error: bookingsError, isLoading: loadingBookings } = useSWR('bookings', fetchBookings);
+  const { data: stats, error: statsError, isLoading: loadingStats } = useSWR('stats', fetchStats);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        const [profileData, bookingsData, statsData] = await Promise.all([
-          userAPI.getProfile(),
-          bookingsAPI.getUserBookings(),
-          userAPI.getStats()
-        ]);
-        
-        setUserProfile(profileData.results?.[0] || profileData);
-        setBookings(bookingsData.results || bookingsData);
-        setStats(statsData);
-        
-        // Debug logging
-        console.log('All bookings received:', bookingsData.results || bookingsData);
-      } catch (err) {
-        console.error('Failed to fetch dashboard data:', err);
-        setError('Failed to load dashboard data. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-  }, []);
-
-  // Debug: log all bookings
-  useEffect(() => {
-    if (bookings.length > 0) {
-      console.log('All bookings:', bookings);
-      bookings.forEach(booking => {
-        if (booking.session_date && booking.duration) {
-          const sessionStart = new Date(booking.session_date);
-          const sessionEnd = new Date(sessionStart.getTime() + (booking.duration * 60000));
-          console.log(`Booking #${booking.id}: start=${sessionStart}, end=${sessionEnd}, status=${booking.status}`);
-        }
-      });
-    }
-  }, [bookings]);
+  const loading = loadingProfile || loadingBookings || loadingStats;
+  const error = profileError || bookingsError || statsError;
 
   // Improved date filtering with better timezone handling and status filtering
-  const upcomingBookings = bookings
-    .filter(booking => {
-      if (!booking.session_date) return false;
-      const sessionStart = new Date(booking.session_date);
-      // Use 60 minutes as default if duration is missing
-      const duration = booking.duration || 60;
-      const sessionEnd = new Date(sessionStart.getTime() + (duration * 60000));
-      const now = new Date();
-      const validStatus = ['confirmed', 'pending'];
-      return (
-        sessionEnd > now &&
-        validStatus.includes((booking.status || '').toLowerCase())
-      );
-    })
-    .sort((a, b) => new Date(a.session_date) - new Date(b.session_date))
-    .slice(0, 5);
+  const upcomingBookings = bookings?.filter(booking => {
+    if (!booking.session_date) return false;
+    const sessionStart = new Date(booking.session_date);
+    const duration = booking.duration || 60;
+    const sessionEnd = new Date(sessionStart.getTime() + (duration * 60000));
+    const now = new Date();
+    const validStatus = ['confirmed', 'pending'];
+    return (
+      sessionEnd > now &&
+      validStatus.includes((booking.status || '').toLowerCase())
+    );
+  }).sort((a, b) => new Date(a.session_date) - new Date(b.session_date)).slice(0, 5) || [];
 
-  const pastBookings = bookings
-    .filter(booking => {
-      if (!booking.session_date) return false;
-      
-      const sessionDate = new Date(booking.session_date);
-      const now = new Date();
-      
-      // Add 1 hour buffer to account for timezone differences
-      const bufferTime = new Date(now.getTime() + (60 * 60 * 1000));
-      
-      return sessionDate <= bufferTime;
-    })
-    .sort((a, b) => new Date(b.session_date) - new Date(a.session_date))
-    .slice(0, 3);
+  const pastBookings = bookings?.filter(booking => {
+    if (!booking.session_date) return false;
+    const sessionDate = new Date(booking.session_date);
+    const now = new Date();
+    const bufferTime = new Date(now.getTime() + (60 * 60 * 1000));
+    return sessionDate <= bufferTime;
+  }).sort((a, b) => new Date(b.session_date) - new Date(a.session_date)).slice(0, 3) || [];
 
   // Fallback: all future sessions regardless of status/duration
   const allFutureSessions = bookings.filter(booking => {
@@ -207,28 +191,21 @@ export default function DashboardPage() {
   const isMentor = user?.user_type === 'mentor';
 
   if (loading) {
-    return (
-      <ProtectedRoute>
-        <PageLoading message="Loading your dashboard..." />
-      </ProtectedRoute>
-    );
+    return <DashboardSkeleton />;
   }
-
   if (error) {
     return (
-      <ProtectedRoute>
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center text-center">
-          <div className="text-red-400 text-6xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-white mb-2">Oops!</h2>
-          <p className="text-slate-400 mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-gold text-primary px-6 py-2 rounded-lg font-bold hover:bg-amber-400 transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
-      </ProtectedRoute>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950">
+        <div className="text-red-400 text-6xl mb-4">⚠️</div>
+        <h2 className="text-2xl font-bold text-white mb-2">Oops!</h2>
+        <p className="text-slate-400 mb-4">Failed to load dashboard data. Please try again later.</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-gold text-primary px-6 py-2 rounded-lg font-bold hover:bg-amber-400 transition-colors"
+        >
+          Try Again
+        </button>
+      </div>
     );
   }
 
